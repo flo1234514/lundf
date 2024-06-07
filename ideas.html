@@ -41,50 +41,67 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="script.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const categoryDropdown = document.getElementById('categoryDropdown');
-            const ideasList = document.getElementById('ideasList');
+        import { supabase } from './supabase.js';
+    document.addEventListener('DOMContentLoaded', async function() {
+    const ideaForm = document.getElementById('ideaForm');
 
-            categoryDropdown.addEventListener('change', function() {
-                const selectedCategory = categoryDropdown.value;
-                displayIdeas(selectedCategory);
+    ideaForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const category = document.getElementById('categorySelect').value;
+        const idea = document.getElementById('ideaInput').value;
+
+        const { data, error } = await supabase
+            .from('ideas')
+            .insert([{ category: category, idea: idea }]);
+        if (error) {
+            console.error('Error adding idea:', error);
+        } else {
+            window.location.href = 'ideas.html';
+        }
+    });
+
+    // Fetch and display ideas
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const ideasList = document.getElementById('ideasList');
+
+    categoryDropdown.addEventListener('change', async function() {
+        const selectedCategory = categoryDropdown.value;
+        const { data: ideas, error: ideasError } = await supabase
+            .from('ideas')
+            .select('*')
+            .eq('category', selectedCategory);
+
+        if (ideasError) {
+            console.error('Error fetching ideas:', ideasError);
+        } else {
+            ideasList.innerHTML = '';
+            ideas.forEach(idea => {
+                const ideaItem = document.createElement('div');
+                ideaItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                ideaItem.innerHTML = `
+                    ${idea.idea}
+                    <button class="btn btn-danger btn-sm delete-idea" data-id="${idea.id}">X</button>
+                `;
+                ideasList.appendChild(ideaItem);
             });
+        }
+    });
 
-            function displayIdeas(category) {
-                const ideas = JSON.parse(localStorage.getItem('ideas')) || {};
-                ideasList.innerHTML = '';
-
-                if (ideas[category]) {
-                    ideas[category].forEach((idea, index) => {
-                        const ideaItem = document.createElement('div');
-                        ideaItem.className = 'list-group-item d-flex justify-content-between align-items-center';
-                        ideaItem.innerHTML = `
-                            ${idea}
-                            <button class="btn btn-danger btn-sm delete-idea" data-category="${category}" data-index="${index}">X</button>
-                        `;
-                        ideasList.appendChild(ideaItem);
-                    });
-                }
+    ideasList.addEventListener('click', async function(event) {
+        if (event.target.classList.contains('delete-idea')) {
+            const id = event.target.getAttribute('data-id');
+            const { error } = await supabase
+                .from('ideas')
+                .delete()
+                .eq('id', id);
+            if (error) {
+                console.error('Error deleting idea:', error);
+            } else {
+                event.target.closest('.list-group-item').remove();
             }
-
-            ideasList.addEventListener('click', function(event) {
-                if (event.target.classList.contains('delete-idea')) {
-                    const category = event.target.getAttribute('data-category');
-                    const index = event.target.getAttribute('data-index');
-                    deleteIdea(category, index);
-                }
-            });
-
-            function deleteIdea(category, index) {
-                const ideas = JSON.parse(localStorage.getItem('ideas')) || {};
-                ideas[category].splice(index, 1);
-                if (ideas[category].length === 0) {
-                    delete ideas[category];
-                }
-                localStorage.setItem('ideas', JSON.stringify(ideas));
-                displayIdeas(category);
-            }
-        });
+        }
+    });
+});
     </script>
 <script src="https://unpkg.com/@supabase/supabase-js"></script>
 <script type="module" src="path/to/supabase.js"></script>
